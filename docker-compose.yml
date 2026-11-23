@@ -27,9 +27,9 @@ services:
       FLOCI_AZ_SUBSCRIPTIONS_1__DISPLAY_NAME: local-sas-viya-spoke
       # --- AKS: real k3s containers (one per managed cluster) ----------------------------------
       FLOCI_AZ_SERVICES_AKS_MOCKED: "false"
-      # Report sidecars (k3s API, PostgreSQL, registry) as localhost:<published port> so kubeconfigs and
-      # FQDNs returned through ARM work from the laptop; floci-az itself still uses the compose network.
-      FLOCI_AZ_DOCKER_ENDPOINT_MODE: published
+      # Keep the default endpoint mode (auto). "published" makes floci-az itself poll sidecars at
+      # localhost:<port> from inside its own container, so AKS/ACR never leave "Creating".
+      # scripts/kubeconfig.sh rewrites the k3s server to localhost:<published port> for host kubectl.
       FLOCI_AZ_SERVICES_AKS_DEFAULT_IMAGE: ${K3S_IMAGE:-rancher/k3s:v1.33.5-k3s1}
     healthcheck:
       # image ships bash only (no curl/wget/grep)
