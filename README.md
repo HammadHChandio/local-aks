@@ -8,12 +8,19 @@ laptop against the [Floci AZ](https://github.com/floci-io/floci-az) emulator: no
 ## Requirements
 - Docker (Docker Desktop on macOS/Windows, or Docker Engine on Linux), about 4 GB free RAM
 - `terraform` ≥ 1.10, `kubectl`, `jq`, `curl`, `python3`, `openssl`
+- Works on macOS (Apple Silicon: Floci and k3s have native arm64 images) and Linux
 - Only if your network re-signs TLS (corporate proxy): copy `.env.example` to `.env` and set `EGRESS_CA_FILE`
 
 ## Run the demo (≈ 5 minutes)
 
 ```bash
 make prerequisites
+```
+
+macOS only, once (Terraform on macOS trusts only the Keychain, so the Floci CA must be added there):
+
+```bash
+make trust-ca
 ```
 
 ```bash
@@ -37,11 +44,17 @@ Then run the checks (PASS/FAIL/BLOCKED with evidence in `.local/evidence/`):
 make spoke-test
 ```
 
-Optional, SAS's upstream root module itself (unchanged) against Floci:
+SAS's upstream **root** module itself (unmodified `viya4-iac-azure` at the vendored commit), applied
+and destroyed against Floci in the spoke subscription:
 
 ```bash
 make upstream-demo
 ```
+
+It layers `terraform/tests/upstream-conformance/floci-profile.tfvars` on upstream defaults. That file
+only sets upstream variables to switch off what Floci cannot emulate (NFS VM disks, extra node pools,
+load-balancer egress IP lookup). `make upstream-conformance` runs pure upstream defaults and shows
+exactly where Floci falls short.
 
 Clean up:
 
@@ -53,7 +66,8 @@ make destroy
 make reset-local
 ```
 
-`make help` lists every target. Nothing touches real Azure unless `TARGET=azure CONFIRM_AZURE=<spoke-subscription-id>` is set.
+`make help` lists every target. **Experimental (not yet verified end to end):** `kubernetes-baseline`,
+`kubernetes-verify`, `sas-verify`, `sas-deploy` (the last is a placeholder that needs a SAS order). Nothing touches real Azure unless `TARGET=azure CONFIRM_AZURE=<spoke-subscription-id>` is set.
 
 ## What is real and what is only emulated
 

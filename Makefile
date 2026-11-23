@@ -5,7 +5,7 @@ TARGET ?= local
 export TARGET
 
 .PHONY: help prerequisites floci-up floci-down reset-local hub-fixture hub-onboard spoke-plan spoke-apply \
-        spoke-test upstream-demo kubernetes-baseline kubernetes-verify sas-verify sas-deploy test report \
+        spoke-test upstream-demo upstream-conformance kubernetes-baseline kubernetes-verify sas-verify sas-deploy test report \
         demo destroy trust-ca
 
 help: ## list targets
@@ -39,8 +39,11 @@ spoke-apply: ## [SAS team] apply the SAS spoke (guarded: never re-creates AKS/PG
 	@[ "$(TARGET)" != local ] || scripts/cluster-bootstrap.sh
 	@[ "$(TARGET)" != local ] || scripts/kubeconfig.sh
 
-upstream-demo: floci-up ## run the UNMODIFIED sassoftware/viya4-iac-azure root module against Floci (KEEP=1 to keep it)
-	@terraform/tests/upstream-conformance/run.sh
+upstream-demo: floci-up ## UNMODIFIED sassoftware/viya4-iac-azure root module: apply + destroy on Floci (KEEP=1 keeps it)
+	@terraform/tests/upstream-conformance/run.sh floci
+
+upstream-conformance: floci-up ## same, with pure upstream defaults: reports where Floci falls short
+	@terraform/tests/upstream-conformance/run.sh defaults
 
 spoke-test: ## Terraform/subscription-boundary tests (PASS/FAIL/BLOCKED + evidence)
 	@tests/static/run.sh
