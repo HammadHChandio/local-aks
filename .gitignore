@@ -1,0 +1,12 @@
+.local/
+.env
+environments/azure/azure.env
+**/_backend_override.tf
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+sas-viya/assets/*
+!sas-viya/assets/README.md
+sas-viya/order.env

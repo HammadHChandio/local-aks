@@ -1,0 +1,38 @@
+# Rendered by scripts/sas-deploy.sh into .local/sas/ansible-vars.yaml from spoke outputs + order.env.
+# Schema: sassoftware/viya4-deployment docs/CONFIG-VARS.md (pinned commit in docs/deployment-guide.md).
+PROVIDER: custom
+CLUSTER_NAME: "${AKS_NAME}"
+NAMESPACE: "${SAS_NAMESPACE}"
+DEPLOY: true
+JUMP_SVR_HOST: ""
+
+# Order (pre-downloaded: the gate does not rely on ses.sas.download)
+V4_CFG_ORDER_NUMBER: "${SAS_ORDER_NUMBER}"
+V4_CFG_CADENCE_NAME: "${SAS_CADENCE_NAME}"
+V4_CFG_CADENCE_VERSION: "${SAS_CADENCE_VERSION}"
+V4_CFG_DEPLOYMENT_ASSETS: /config/assets/${ASSETS_TGZ}
+V4_CFG_LICENSE: /config/assets/${LICENSE_JWT}
+V4_CFG_CERTS: /config/assets/${CERTS_ZIP}
+
+# Storage: baseline installed by make kubernetes-baseline (RWX class), not by viya4-deployment
+V4_CFG_MANAGE_STORAGE: false
+V4_CFG_STORAGECLASS: sas-rwx-shared
+
+# Ingress: Contour installed by the baseline; TLS front-door
+V4_CFG_INGRESS_TYPE: contour
+V4_CFG_INGRESS_FQDN: "${SAS_INGRESS_FQDN}"
+V4_CFG_TLS_MODE: front-door
+
+# External PostgreSQL = spoke Flexible Server (module.flex_postgresql)
+V4_CFG_POSTGRES_SERVERS:
+  default:
+    internal: false
+    admin: "${PG_ADMIN}"
+    password: "${PG_PASSWORD}"
+    fqdn: "${PG_FQDN}"
+    server_port: "5432"
+    ssl_enforcement_enabled: false   # Floci's postgres container has no TLS; true on Azure
+
+V4_CFG_EMBEDDED_LDAP_ENABLE: true    # local identity provider for "basic authorised functionality" tests
+V4_CFG_CAS_WORKER_COUNT: 0           # SMP CAS on the single local node
+V4_WORKLOAD_ORCHESTRATOR_ENABLED: true

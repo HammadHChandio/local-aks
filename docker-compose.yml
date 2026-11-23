@@ -1,0 +1,52 @@
+# Local Azure control plane for the SAS Viya hub-and-spoke lab.
+# Floci AZ emulates ARM; it does NOT emulate packet routing, NSG enforcement, peering or firewalls.
+name: sas-viya-local
+
+services:
+  floci-az:
+    image: ${FLOCI_IMAGE:-floci/floci-az:0.17.0}
+    container_name: floci-az
+    hostname: floci-az
+    ports:
+      - "127.0.0.1:4577:4577"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock   # AKS -> k3s, PostgreSQL -> real postgres containers
+      - ./.local/floci-data:/app/data                 # persists the TLS CA so it is trusted once
+    environment:
+      FLOCI_AZ_TLS_ENABLED: "true"
+      FLOCI_AZ_HOSTNAME: floci-az
+      # --- Azure parity: behave like ARM, refuse unknown subscriptions -------------------------
+      FLOCI_AZ_PARITY: azure
+      FLOCI_AZ_PARITY_OVERRIDES_STRICT_SUBSCRIPTIONS: "true"   # typo'd sub id => 404, never silently created
+      FLOCI_AZ_PARITY_OVERRIDES_STRICT_RESOURCE_GROUPS: "true"
+      # --- Directory: one tenant, a trap default subscription, hub and spoke ------------------
+      FLOCI_AZ_SERVICES_ARM_DEFAULT_SUBSCRIPTION_ID: ${FLOCI_DEFAULT_SUBSCRIPTION_ID:-00000000-0000-0000-0000-000000000001}
+      FLOCI_AZ_SUBSCRIPTIONS_0__ID: ${HUB_SUBSCRIPTION_ID:-00000000-0000-0000-0000-00000000a001}
+      FLOCI_AZ_SUBSCRIPTIONS_0__DISPLAY_NAME: local-connectivity-hub
+      FLOCI_AZ_SUBSCRIPTIONS_1__ID: ${SPOKE_SUBSCRIPTION_ID:-00000000-0000-0000-0000-00000000b001}
+      FLOCI_AZ_SUBSCRIPTIONS_1__DISPLAY_NAME: local-sas-viya-spoke
+      # --- AKS: real k3s containers (one per managed cluster) ----------------------------------
+      FLOCI_AZ_SERVICES_AKS_MOCKED: "false"
+      FLOCI_AZ_SERVICES_AKS_DEFAULT_IMAGE: ${K3S_IMAGE:-rancher/k3s:v1.33.5-k3s1}
+    healthcheck:
+      # image ships bash only (no curl/wget/grep)
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/4577 && printf 'GET /_floci/tls-cert HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && read -r -t 5 l <&3 && [[ $$l == *' 200'* ]]"]
+      interval: 5s
+      retries: 30
+
+  # Transparent ARM shim: corrects ONE verified Floci defect (AKS user-credential name) that breaks the
+  # upstream azure_aks module on refresh. See scripts/floci_compat_shim.py and docs/floci-compatibility.md.
+  floci-compat:
+    image: python:3.12-alpine
+    container_name: floci-compat
+    depends_on:
+      floci-az:
+        condition: service_healthy
+    command: ["python", "-u", "/shim/floci_compat_shim.py"]
+    ports:
+      - "127.0.0.1:4578:4578"
+    environment:
+      FLOCI_UPSTREAM: floci-az:4577
+    volumes:
+      - ./scripts/floci_compat_shim.py:/shim/floci_compat_shim.py:ro
+      - ./.local/floci-data/tls:/tls:ro

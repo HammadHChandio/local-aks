@@ -1,0 +1,27 @@
+{
+  "_comment": "Floci AZ 0.17.0 read-back gaps. A re-plan shows these as changes although nothing changed. They are reported as BLOCKED (emulator limitation) by tests and are NEVER applied locally by scripts/spoke.sh (which would destroy the running k3s cluster / PostgreSQL). Production configuration is not altered to hide them.",
+  "floci_version": "0.17.0",
+  "deviations": [
+    {
+      "address": "azurerm_container_registry.acr[0]",
+      "action": "update",
+      "attributes": ["public_network_access_enabled"],
+      "reason": "Floci ACR always reads back publicNetworkAccess=Enabled; a private-only registry cannot be represented."
+    },
+    {
+      "address": "module.aks.azurerm_kubernetes_cluster.aks",
+      "action": "replace",
+      "attributes": ["default_node_pool", "dns_prefix_private_cluster", "network_profile", "private_cluster_enabled", "private_dns_zone_id"],
+      "cascade": ["azurerm_monitor_diagnostic_setting.aks_to_hub[0]"],
+      "reason": "Floci managedClusters GET omits networkProfile, apiServerAccessProfile (private cluster + private DNS zone) and agentPoolProfiles[].type; all are ForceNew in azurerm."
+    },
+    {
+      "address": "module.flex_postgresql[0].azurerm_postgresql_flexible_server.flexpsql",
+      "action": "replace",
+      "attributes": ["delegated_subnet_id"],
+      "cascade": ["module.flex_postgresql[0].azurerm_postgresql_flexible_server_configuration.flexpsql[\"azure.extensions\"]",
+                  "module.flex_postgresql[0].azurerm_postgresql_flexible_server_configuration.flexpsql[\"max_prepared_transactions\"]"],
+      "reason": "Floci flexibleServers GET omits network.delegatedSubnetResourceId (VNet-integrated private access), which is ForceNew."
+    }
+  ]
+}

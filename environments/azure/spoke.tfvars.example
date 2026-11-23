@@ -1,0 +1,89 @@
+prefix   = "sasviya"
+location = "eastus"
+tags = {
+  environment = "local-floci"
+  cost_center = "sas-platform"
+  data_class  = "synthetic"
+}
+
+# Interface contract published by the hub team (see terraform/hub-fixture outputs.hub_contract)
+hub = {
+  connectivity_rg     = "hub-connectivity-rg"
+  vnet_name           = "hub-vnet"
+  dns_rg              = "hub-dns-rg"
+  firewall_private_ip = "10.0.1.4"
+  dns_servers         = ["10.0.4.4"]
+  log_analytics_rg    = "hub-management-rg"
+  log_analytics_name  = "hub-central-law"
+}
+hub_rbac_mode = "hub-team" # spoke writes nothing to the hub
+
+vnet_address_space = "10.20.0.0/16"
+subnets = {
+  aks = {
+    prefixes                                      = ["10.20.0.0/22"]
+    service_endpoints                             = []
+    private_endpoint_network_policies             = "Enabled"
+    private_link_service_network_policies_enabled = false
+    service_delegations                           = {}
+  }
+  misc = {
+    prefixes                                      = ["10.20.4.0/24"]
+    service_endpoints                             = []
+    private_endpoint_network_policies             = "Enabled"
+    private_link_service_network_policies_enabled = false
+    service_delegations                           = {}
+  }
+  postgresql = {
+    prefixes                                      = ["10.20.5.0/24"]
+    service_endpoints                             = []
+    private_endpoint_network_policies             = "Enabled"
+    private_link_service_network_policies_enabled = false
+    service_delegations = {
+      flexpostgres = {
+        name    = "Microsoft.DBforPostgreSQL/flexibleServers"
+        actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+      }
+    }
+  }
+  privatelink = {
+    prefixes                                      = ["10.20.6.0/24"]
+    service_endpoints                             = []
+    private_endpoint_network_policies             = "Enabled"
+    private_link_service_network_policies_enabled = false
+    service_delegations                           = {}
+  }
+}
+aks_service_cidr   = "172.20.0.0/16"
+aks_dns_service_ip = "172.20.0.10"
+aks_pod_cidr       = "172.21.0.0/16"
+
+cluster_api_mode = "private"
+# Floci runs whatever k3s image it is configured with; this value is ARM state only locally.
+kubernetes_version = "1.33"
+
+node_pools = {
+  cas = {
+    machine_type = "Standard_E16ds_v5", os_disk_size = 200, min_nodes = 1, max_nodes = 1, max_pods = 110
+    node_taints  = ["workload.sas.com/class=cas:NoSchedule"]
+    node_labels  = { "workload.sas.com/class" = "cas" }
+  }
+  compute = {
+    machine_type = "Standard_D4ds_v5", os_disk_size = 200, min_nodes = 1, max_nodes = 1, max_pods = 110
+    node_taints  = ["workload.sas.com/class=compute:NoSchedule"]
+    node_labels  = { "workload.sas.com/class" = "compute", "launcher.sas.com/prepullImage" = "sas-programming-environment" }
+  }
+  stateless = {
+    machine_type = "Standard_D4s_v5", os_disk_size = 200, min_nodes = 1, max_nodes = 2, max_pods = 110
+    node_taints  = ["workload.sas.com/class=stateless:NoSchedule"]
+    node_labels  = { "workload.sas.com/class" = "stateless" }
+  }
+  stateful = {
+    machine_type = "Standard_D4s_v5", os_disk_size = 200, min_nodes = 1, max_nodes = 1, max_pods = 110
+    node_taints  = ["workload.sas.com/class=stateful:NoSchedule"]
+    node_labels  = { "workload.sas.com/class" = "stateful" }
+  }
+}
+
+postgres_server = { server_version = "16" }
+storage_type    = "standard"

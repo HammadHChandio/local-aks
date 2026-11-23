@@ -1,0 +1,8 @@
+# Remote state for the SAS spoke, stored in the SPOKE subscription's own state account.
+# One state key per environment+subscription; never shared with hub state.
+subscription_id      = "<spoke-subscription-id>"
+resource_group_name  = "<spoke>-tfstate-rg"
+storage_account_name = "<spoketfstate>"
+container_name       = "tfstate"
+key                  = "sas-viya/<env>/spoke.tfstate"
+use_azuread_auth     = true

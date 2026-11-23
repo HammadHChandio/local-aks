@@ -1,0 +1,48 @@
+# RWO (k3s local-path, the AKS "default" analogue) and RWX (sas-rwx-shared) claims, written by one pod
+# and read by a second pod mounting the same RWX claim concurrently.
+apiVersion: v1
+kind: Namespace
+metadata: { name: platform-smoke }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: rwo, namespace: platform-smoke }
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources: { requests: { storage: 1Gi } }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: rwx, namespace: platform-smoke }
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: sas-rwx-shared
+  resources: { requests: { storage: 1Gi } }
+---
+apiVersion: v1
+kind: Pod
+metadata: { name: writer, namespace: platform-smoke }
+spec:
+  restartPolicy: Never
+  containers:
+    - name: w
+      image: busybox:1.36
+      command: [sh, -c, "echo rwo-ok > /rwo/f && echo rwx-$(hostname) > /rwx/f && sync && sleep 3600"]
+      volumeMounts: [{ name: rwo, mountPath: /rwo }, { name: rwx, mountPath: /rwx }]
+  volumes:
+    - { name: rwo, persistentVolumeClaim: { claimName: rwo } }
+    - { name: rwx, persistentVolumeClaim: { claimName: rwx } }
+---
+apiVersion: v1
+kind: Pod
+metadata: { name: reader, namespace: platform-smoke }
+spec:
+  restartPolicy: Never
+  containers:
+    - name: r
+      image: busybox:1.36
+      command: [sh, -c, "until [ -s /rwx/f ]; do sleep 1; done; cat /rwx/f; sleep 3600"]
+      volumeMounts: [{ name: rwx, mountPath: /rwx }]
+  volumes:
+    - { name: rwx, persistentVolumeClaim: { claimName: rwx } }

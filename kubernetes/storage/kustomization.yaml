@@ -1,0 +1,39 @@
+# Local RWX storage for the single-node emulated AKS.
+# Upstream rancher/local-path-provisioner v0.0.32 (vendored unmodified in upstream-local-path-storage.yaml)
+# re-configured with sharedFileSystemPath, which enables ReadWriteMany. Correct ONLY because every pod
+# runs on one node (the Floci k3s node). In Azure, RWX comes from the NFS VM / NetApp (viya4-deployment
+# installs csi-driver-nfs against it). On a workstation kernel with nfsd, nfs-server/ is the closer analogue.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: sas-rwx-storage
+namePrefix: sas-rwx-
+resources:
+  - upstream-local-path-storage.yaml
+patches:
+  - target: { kind: Namespace, name: local-path-storage }
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: sas-rwx-storage
+  - target: { kind: StorageClass, name: local-path }
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: shared   # + namePrefix => StorageClass "sas-rwx-shared"
+      - op: replace
+        path: /provisioner
+        value: local.sas.com/shared-path
+  - target: { kind: Deployment, name: local-path-provisioner }
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/command
+        value: [local-path-provisioner, start, --config, /etc/config/config.json,
+                --provisioner-name, local.sas.com/shared-path,
+                --configmap-name, sas-rwx-local-path-config,
+                --service-account-name, sas-rwx-local-path-provisioner-service-account,
+                --helper-image, busybox:1.36]
+  - target: { kind: ConfigMap, name: local-path-config }
+    patch: |-
+      - op: replace
+        path: /data/config.json
+        value: '{"sharedFileSystemPath": "/var/lib/rancher/k3s/storage-shared"}'
