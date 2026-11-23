@@ -1,8 +1,72 @@
-# SAS Viya 4 local lab (Floci AZ hub-and-spoke)
+# SAS Viya 4 IaC on a local Azure (Floci AZ), hub-and-spoke
 
-**Team demo:** see [docs/DEMO.md](docs/DEMO.md). In short: `make prerequisites && make demo`, then `make spoke-test`.
+SAS's own `viya4-iac-azure` Terraform modules create a SAS Viya spoke (AKS, VNet and subnets, NSG, UDR
+to the hub firewall, ACR with a private endpoint, PostgreSQL Flexible Server) in a dedicated **spoke
+subscription**. A centrally owned **hub subscription** is consumed read-only. Everything runs on a
+laptop against the [Floci AZ](https://github.com/floci-io/floci-az) emulator: no Azure account, no cost.
 
-## Verified so far (Floci AZ 0.17.0, Terraform 1.13.4, azurerm 4.64.0)
+## Requirements
+- Docker (Docker Desktop on macOS/Windows, or Docker Engine on Linux), about 4 GB free RAM
+- `terraform` ≥ 1.10, `kubectl`, `jq`, `curl`, `python3`, `openssl`
+- Only if your network re-signs TLS (corporate proxy): copy `.env.example` to `.env` and set `EGRESS_CA_FILE`
+
+## Run the demo (≈ 5 minutes)
+
+```bash
+make prerequisites
+```
+
+```bash
+make demo
+```
+
+`make demo` runs, in order:
+
+| Step | What it shows |
+|---|---|
+| `hub-fixture` | Platform team's hub in subscription `…a001`: hub VNet, firewall/bastion subnets, private DNS zones, central Log Analytics. |
+| `spoke-apply` | SAS team's Terraform in subscription `…b001`, using **unmodified** upstream modules (`terraform/modules/viya4-iac-azure`, sha256-pinned). The hub is read through a separate read-only `azurerm.hub` provider. |
+| guard rails | The plan fails if a subscription ID isn't a local fixture ID, if hub and spoke are the same, or if CIDRs overlap (upstream's default service CIDR `10.0.0.0/16` collides with the hub and is refused). |
+| AKS | A **real k3s cluster**; the kubeconfig comes from the upstream `azure_aks` module (`.local/kubeconfig`). |
+| `hub-onboard` | The hub team's own step: hub→spoke peering + DNS links. The SAS state never owns hub resources. |
+| summary | Resources listed **from the emulated ARM API** per subscription, plus the real containers behind them (k3s, postgres:17, registry:2). |
+
+Then run the checks (PASS/FAIL/BLOCKED with evidence in `.local/evidence/`):
+
+```bash
+make spoke-test
+```
+
+Optional, SAS's upstream root module itself (unchanged) against Floci:
+
+```bash
+make upstream-demo
+```
+
+Clean up:
+
+```bash
+make destroy
+```
+
+```bash
+make reset-local
+```
+
+`make help` lists every target. Nothing touches real Azure unless `TARGET=azure CONFIRM_AZURE=<spoke-subscription-id>` is set.
+
+## What is real and what is only emulated
+
+| Real | Emulated only (API state, no behaviour) |
+|---|---|
+| Terraform plan/apply/destroy, state, idempotency, drift detection | VNet routing, peering, NSG and UDR enforcement, firewall |
+| k3s Kubernetes API (single node) | AKS node pools (cas/compute/...) and their VM sizes |
+| PostgreSQL 17 container, registry:2 container | Private endpoints, private DNS resolution, RBAC enforcement |
+
+Floci keeps state in memory: if Floci or Docker restarts, run `make reset-local` and then `make demo` again.
+
+## Findings
+### Verified so far (Floci AZ 0.17.0, Terraform 1.13.4, azurerm 4.64.0)
 - Floci with separate hub/spoke subscriptions and `strict-subscriptions` (unknown sub IDs → 404).
 - `terraform/hub-fixture`: local stand-in for the central hub (VNet, DNS zones, LAW) in the hub subscription.
 - `terraform/spoke`: SAS spoke built from **unmodified** vendored `viya4-iac-azure` modules
@@ -12,7 +76,7 @@
 - Static + Terraform test suites (`tests/static`, `tests/terraform`): guard rails, subscription
   placement, hub untouched, cross-sub references, drift detect/repair, CIDR-overlap refusal.
 
-## Blockers found
+### Blockers found
 - Floci gaps: no `Microsoft.Compute/disks` (upstream NFS VM), AKS agent pools are ARM-only
   (single k3s node), AKS/PG ForceNew attributes not read back, AKS user-credential name bug
   (worked around by `scripts/floci_compat_shim.py`, one rewrite only).
