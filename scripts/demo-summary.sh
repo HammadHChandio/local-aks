@@ -15,5 +15,6 @@ c "== Real containers behind the emulated services"
 docker ps --filter label=io.floci.service --format '  {{.Names}}  ({{.Image}})  {{.Ports}}'
 c "== AKS (k3s) via the kubeconfig produced by the upstream azure_aks module"
 KUBECONFIG="$LOCAL_DIR/kubeconfig" kubectl get nodes -o wide 2>&1 | sed 's/^/  /'
-c "== Terraform: re-plan classification (real changes must be 0)"
+c "== Terraform: fresh re-plan after apply (real changes must be 0)"
+"$ROOT/scripts/spoke.sh" plan >/dev/null 2>&1 || log "re-plan failed"
 jq -c '{real:(.real|length), emulator_gaps:(.emulator|length), cascades:(.cascade|length)}' "$LOCAL_DIR/spoke-$TARGET.tfplan.guard.json" 2>/dev/null | sed 's/^/  /'
