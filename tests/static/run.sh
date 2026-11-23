@@ -4,7 +4,7 @@ SUITE=static; source "$(dirname "$0")/../lib/result.sh"
 V="$ROOT/terraform/modules/viya4-iac-azure"
 
 check vendored-unmodified "vendored upstream modules match UPSTREAM.sha256" "$(ev vendored.txt)" \
-  bash -c "cd '$V' && sha256sum -c UPSTREAM.sha256"
+  bash -c "cd '$V' && if command -v sha256sum >/dev/null; then sha256sum -c UPSTREAM.sha256; else shasum -a 256 -c UPSTREAM.sha256; fi"
 
 check terraform-fmt "terraform fmt -check (own code; vendored upstream excluded)" "$(ev fmt.txt)" \
   bash -c "cd '$ROOT/terraform' && terraform fmt -check -recursive hub-fixture spoke modules/subscription-guard tests"

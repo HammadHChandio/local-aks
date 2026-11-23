@@ -12,7 +12,7 @@ for c in $(docker ps --filter name=floci-az-aks- --format '{{.Names}}'); do
   restart=0
   if [ -n "${EGRESS_CA_FILE:-}" ]; then
     [ -f "$EGRESS_CA_FILE" ] || die "EGRESS_CA_FILE=$EGRESS_CA_FILE not found"
-    fp=$(sha256sum "$EGRESS_CA_FILE" | cut -c1-16)
+    fp=$(sha256 "$EGRESS_CA_FILE" | cut -c1-16)
     if ! docker exec "$c" grep -q "egress-ca:$fp" /etc/ssl/certs/ca-certificates.crt; then
       { printf '\n# egress-ca:%s\n' "$fp"; cat "$EGRESS_CA_FILE"; } | docker exec -i "$c" sh -c 'cat >> /etc/ssl/certs/ca-certificates.crt'
       log "$c: trusted egress CA $fp"; restart=1

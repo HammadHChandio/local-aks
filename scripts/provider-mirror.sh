@@ -28,7 +28,7 @@ for p in "${PROVIDERS[@]}"; do
   tmp=$(mktemp -d)
   curl -sSfL "$base/$zip" -o "$tmp/$zip"
   curl -sSfL "$base/terraform-provider-${name}_${ver}_SHA256SUMS" -o "$tmp/SUMS"
-  (cd "$tmp" && grep " $zip\$" SUMS | sha256sum -c --quiet -) || { echo "checksum FAILED for $zip" >&2; exit 1; }
+  (cd "$tmp" && grep " $zip\$" SUMS > ONE && if command -v sha256sum >/dev/null; then sha256sum -c --quiet ONE; else shasum -a 256 -c --quiet ONE; fi) || { echo "checksum FAILED for $zip" >&2; exit 1; }
   mkdir -p "$dest" && unzip -oq "$tmp/$zip" -d "$dest" && rm -rf "$tmp"
   echo "mirrored $name $ver"
 done

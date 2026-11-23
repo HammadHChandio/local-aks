@@ -73,6 +73,10 @@ floci_trust() {
   done
   cat "$base" "$crt" > "$bundle"
   export SSL_CERT_FILE="$bundle"
+  # macOS: Go (terraform) ignores SSL_CERT_FILE and trusts only the Keychain.
+  if [ "$(uname -s)" = Darwin ] && ! security verify-cert -c "$crt" >/dev/null 2>&1; then
+    die "macOS: trust the Floci CA once with 'make trust-ca' (adds $crt to the System keychain)"
+  fi
 }
 
 # tf <stack> <subcommand> <args...>: one state boundary, isolated data dir + state file.
@@ -115,6 +119,7 @@ tf() {
 }
 
 floci() { curl -sf "http://${FLOCI_DIRECT}$1"; }
+sha256() { if command -v sha256sum >/dev/null; then sha256sum "$@"; else shasum -a 256 "$@"; fi; }
 
 # Local-only secrets (generated, git-ignored). In Azure mode these come from the pipeline/Key Vault.
 local_secrets() {

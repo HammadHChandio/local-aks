@@ -35,8 +35,7 @@ case "${1:-}" in
       jq -r '(.emulator + .cascade)[]' "$PLAN.guard.json" | sed 's/^/    /' >&2
     else
       log "applying $n_real real change(s) only; skipping $n_emu emulator deviation(s)"
-      mapfile -t targets < <(jq -r '.real[]' "$PLAN.guard.json")
-      targs=(); for t in "${targets[@]}"; do targs+=("-target=$t"); done
+      targs=(); while IFS= read -r t; do targs+=("-target=$t"); done < <(jq -r '.real[]' "$PLAN.guard.json")
       tf spoke apply -input=false -auto-approve "${targs[@]}"
     fi
     tf spoke output -json > "$LOCAL_DIR/spoke-outputs.json"

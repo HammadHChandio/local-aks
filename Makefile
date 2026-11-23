@@ -6,7 +6,7 @@ export TARGET
 
 .PHONY: help prerequisites floci-up floci-down reset-local hub-fixture hub-onboard spoke-plan spoke-apply \
         spoke-test upstream-demo kubernetes-baseline kubernetes-verify sas-verify sas-deploy test report \
-        demo destroy
+        demo destroy trust-ca
 
 help: ## list targets
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -45,6 +45,7 @@ upstream-demo: floci-up ## run the UNMODIFIED sassoftware/viya4-iac-azure root m
 spoke-test: ## Terraform/subscription-boundary tests (PASS/FAIL/BLOCKED + evidence)
 	@tests/static/run.sh
 	@tests/terraform/run.sh
+	@tests/report.sh > /dev/null || { echo "FAIL present: see .local/evidence/REPORT.md"; exit 1; }
 
 kubernetes-baseline: ## RWX StorageClass + Contour ingress on the emulated AKS
 	@scripts/k8s-baseline.sh
@@ -70,3 +71,8 @@ destroy: ## destroy spoke, then hub fixture (local only)
 	@[ "$(TARGET)" = local ] || { echo "make destroy is local-only; destroy Azure via your pipeline"; exit 1; }
 	@AUTO_APPROVE=1 scripts/spoke.sh destroy
 	@scripts/hub-fixture.sh destroy
+
+trust-ca: ## macOS only: trust the Floci CA in the System keychain (terraform ignores SSL_CERT_FILE there)
+	@[ "$$(uname -s)" = Darwin ] || { echo "only needed on macOS; Linux uses SSL_CERT_FILE automatically"; exit 0; }
+	@docker compose up -d --wait floci-az >/dev/null && curl -sf http://localhost:4577/_floci/tls-cert -o .local/floci-az.crt
+	@sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain .local/floci-az.crt && echo "Floci CA trusted"

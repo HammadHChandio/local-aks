@@ -37,7 +37,7 @@ code=$(curl -s -o "$E" -w '%{http_code}' -X PUT -H 'content-type: application/js
 
 # ---------- Hub untouched -----------------------------------------------------------------------
 E=$(ev hub-plan.txt)
-tf hub-fixture plan -input=false -detailed-exitcode -lock=false > "$E" 2>&1; rc=$?
+rc=0; tf hub-fixture plan -input=false -detailed-exitcode -lock=false > "$E" 2>&1 || rc=$?
 [ $rc -eq 0 ] && pass hub-unchanged-after-spoke "hub fixture plan shows no changes after spoke apply" "$E" \
   || fail hub-unchanged-after-spoke "hub fixture plan exit=$rc (2=changes)" "$E"
 E=$(ev hub-in-spoke-state.json)
@@ -50,7 +50,7 @@ KNOWN="$ROOT/terraform/tests/known-emulator-drift.json"
 guard() { tf spoke show -json "$1" > "$1.json" && python3 "$ROOT/scripts/plan-guard.py" "$1.json" "$KNOWN"; }
 
 E=$(ev refresh-only.txt)
-tf spoke plan -input=false -refresh-only -lock=false -out="$LOCAL_DIR/refresh.tfplan" > "$E" 2>&1
+tf spoke plan -input=false -refresh-only -lock=false -out="$LOCAL_DIR/refresh.tfplan" > "$E" 2>&1 || true
 tf spoke show -json "$LOCAL_DIR/refresh.tfplan" | jq '[(.resource_drift // [])[] | .address]' > "$(ev read-back-drift.json)"
 n_res=$(tf spoke state list | wc -l)
 pass read-back "$n_res state objects re-read from Floci ARM ($(jq length "$(ev read-back-drift.json)") reported drifted; classified below)" "$(ev read-back-drift.json)"
@@ -88,16 +88,16 @@ else fail cross-sub-references "a cross-subscription reference did not resolve t
 E=$(ev drift.txt)
 NSG="$ARM/subscriptions/$SPOKE_SUBSCRIPTION_ID/resourceGroups/sasviya-rg/providers/Microsoft.Network/networkSecurityGroups/sasviya-nsg?api-version=2024-05-01"
 { curl -s "$NSG" | jq '.tags.drift="out-of-band"' | curl -s -X PUT -H 'content-type: application/json' -d @- "$NSG" | jq -c .tags
-  tf spoke plan -input=false -detailed-exitcode -lock=false -target=azurerm_network_security_group.spoke; echo "drift-plan-exit=$?"
-  tf spoke apply -input=false -auto-approve -lock=false -target=azurerm_network_security_group.spoke >/dev/null 2>&1; echo "repair-exit=$?"
-  tf spoke plan -input=false -detailed-exitcode -lock=false -target=azurerm_network_security_group.spoke; echo "post-repair-plan-exit=$?"; } > "$E" 2>&1
+  rc=0; tf spoke plan -input=false -detailed-exitcode -lock=false -target=azurerm_network_security_group.spoke || rc=$?; echo "drift-plan-exit=$rc"
+  rc=0; tf spoke apply -input=false -auto-approve -lock=false -target=azurerm_network_security_group.spoke >/dev/null 2>&1 || rc=$?; echo "repair-exit=$rc"
+  rc=0; tf spoke plan -input=false -detailed-exitcode -lock=false -target=azurerm_network_security_group.spoke || rc=$?; echo "post-repair-plan-exit=$rc"; } > "$E" 2>&1
 grep -q 'drift-plan-exit=2' "$E" && grep -q 'repair-exit=0' "$E" && grep -q 'post-repair-plan-exit=0' "$E" \
   && pass drift-detect-repair "out-of-band tag change detected (exit 2), repaired, converged (exit 0)" "$E" \
   || fail drift-detect-repair "drift cycle incomplete" "$E"
 
 # ---------- Guard: CIDR overlap refused at plan time -------------------------------------------------
 E=$(ev overlap-refused.txt)
-tf spoke plan -input=false -lock=false -refresh=false -var aks_service_cidr=10.0.0.0/16 -var aks_dns_service_ip=10.0.0.10 > "$E" 2>&1
-grep -q 'Overlapping address spaces: .*hub-0<->aks_service' "$E" \
+tf spoke plan -input=false -lock=false -refresh=false -var aks_service_cidr=10.0.0.0/16 -var aks_dns_service_ip=10.0.0.10 > "$E" 2>&1 || true
+grep -qE 'Overlapping address spaces: .*(hub-0<->aks_service|aks_service<->hub-0)' "$E" \
   && pass overlap-refused "upstream default service CIDR 10.0.0.0/16 collides with hub -> plan refused" "$E" \
   || fail overlap-refused "overlap not detected" "$E"

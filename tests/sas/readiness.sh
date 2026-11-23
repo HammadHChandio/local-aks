@@ -17,7 +17,7 @@ else
     || fail assets-tgz "deployment assets missing or without sas-bases/" "$E"
   if [ -n "$LIC" ]; then
     exp=$(cut -d. -f2 "$LIC" | tr '_-' '/+' | base64 -d 2>/dev/null | jq -r '.exp // empty' 2>/dev/null)
-    if [ -n "$exp" ] && [ "$exp" -gt "$(date +%s)" ]; then pass license "license JWT valid until $(date -u -d @"$exp" +%F)" "$E"
+    if [ -n "$exp" ] && [ "$exp" -gt "$(date +%s)" ]; then pass license "license JWT valid until $(date -u -d @"$exp" +%F 2>/dev/null || date -u -r "$exp" +%F)" "$E"
     else fail license "license unreadable or expired (exp=${exp:-n/a})" "$E"; fi
   else fail license "license .jwt missing" "$E"; fi
   [ -n "$CRT" ] && unzip -l "$CRT" >/dev/null 2>&1 && pass certs "$(basename "$CRT") readable" "$E" || fail certs "certs .zip missing/unreadable" "$E"

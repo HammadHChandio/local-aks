@@ -11,7 +11,7 @@ if [ "$TARGET" = local ]; then
   host=$(sed -nE 's#.*server: https://([^:]+):([0-9]+).*#\1#p' "$OUT.tmp" | head -1)
   port=$(docker port "$host" 6443/tcp 2>/dev/null | head -1 | awk -F: '{print $NF}')
   [ -n "$port" ] || die "k3s container $host has no published API port"
-  sed -i -E "s#server: https://[^ ]+#server: https://localhost:$port#" "$OUT.tmp"
+  sed -E "s#server: https://[^ ]+#server: https://localhost:$port#" "$OUT.tmp" > "$OUT.tmp2" && mv "$OUT.tmp2" "$OUT.tmp"
 fi
 mv "$OUT.tmp" "$OUT"; chmod 600 "$OUT"
 echo "$OUT"
