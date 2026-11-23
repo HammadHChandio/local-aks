@@ -2,7 +2,7 @@
 # This is the only change applied to the upstream root module; no upstream file is edited.
 provider "azurerm" {
   environment                     = "stack"
-  metadata_host                   = "localhost:4577"
+  metadata_host                   = "localhost:4578" # compat shim: AKS user-credential name fix
   use_cli                         = false
   resource_provider_registrations = "none"
 }

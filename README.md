@@ -1,4 +1,6 @@
-# SAS Viya 4 local lab (Floci AZ hub-and-spoke) — work in progress
+# SAS Viya 4 local lab (Floci AZ hub-and-spoke)
+
+**Team demo:** see [docs/DEMO.md](docs/DEMO.md). In short: `make prerequisites && make demo`, then `make spoke-test`.
 
 ## Verified so far (Floci AZ 0.17.0, Terraform 1.13.4, azurerm 4.64.0)
 - Floci with separate hub/spoke subscriptions and `strict-subscriptions` (unknown sub IDs → 404).

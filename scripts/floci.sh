@@ -17,7 +17,7 @@ case "${1:-up}" in
   reset)
     docker compose -f "$ROOT/docker-compose.yml" down
     docker ps -aq --filter label=io.floci.service | xargs -r docker rm -f >/dev/null || true
-    rm -rf "$LOCAL_DIR/state" "$LOCAL_DIR"/spoke-*.tfplan* "$LOCAL_DIR/spoke-outputs.json" "$LOCAL_DIR/kubeconfig"
+    rm -rf "$LOCAL_DIR/state" "$LOCAL_DIR/hub-fixture.generated.tfvars" "$LOCAL_DIR"/spoke-*.tfplan* "$LOCAL_DIR/spoke-outputs.json" "$LOCAL_DIR/kubeconfig"
     log "local state reset (provider mirror, secrets and evidence kept)" ;;
   *) die "usage: floci.sh up|down|reset" ;;
 esac
